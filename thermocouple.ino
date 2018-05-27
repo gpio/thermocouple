@@ -42,68 +42,68 @@ PubSubClient client(wifiClient);
 
 // initialisation du thermocouple
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
-
 String mac = WiFi.macAddress();
 
 
 /*Initialisation*/
 void setup() {
-  pinMode(MAXVCC, OUTPUT); digitalWrite(MAXVCC, HIGH);
-
+  client.setServer(MQTT_SERVER, MQTT_SERVERPORT);
   Serial.begin(9600);
-  Serial.println("Mesure de temperature MAX31855");
-  // Connexion au point d'acces.
-  Serial.println(); Serial.println();
-  Serial.print("Connexion ");
-  Serial.println(WLAN_SSID);
+  Serial.println("Reveil");
+  pinMode(MAXVCC, OUTPUT); digitalWrite(MAXVCC, HIGH);
+  delay(100);
 
+
+  //plusieurs mesures, on prend le plus haute
+  double temp = 0;
+  double temp_= 0;
+  for(int i =0; i<10; i++){
+    temp = thermocouple.readCelsius();
+    if (temp_>temp){
+      temp=temp_;
+    }
+    temp_=temp;
+  }
+
+
+  
+  StaticJsonBuffer<300> JSONbuffer;
+  JsonObject& JSONencoder = JSONbuffer.createObject();
+  JSONencoder["mac"] = mac;
+  JSONencoder["type"] = "temperature";
+  JSONencoder["valeur"] = temp +5 ; //+offset de calibration
+
+  char JSONmessageBuffer[100];
+  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+  
   WiFi.begin(WLAN_SSID, WLAN_PASS);
+  int essais = 0;
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    essais++;
+     Serial.print(".");
+     if (essais>=10){
+       Serial.println("Echec Connexion WiFi");
+       ESP.deepSleep(20e6);
+     }
   }
   Serial.println();
   Serial.println("Connexion WiFi etablie");
   Serial.print("Address IP : "); Serial.println(WiFi.localIP());
   Serial.print("Address MAC: "); Serial.println(mac);
-  // Configuration mqtt
-  client.setServer(MQTT_SERVER, MQTT_SERVERPORT);
 
-  if (client.connect("arduinoClient", MQTT_USERNAME, MQTT_KEY)) {
-    client.publish("boot", mac.c_str());
-  }
-}
-
-
-/*Boucle principale*/
-void loop() {
-//  float c = thermocouple.readCelsius();
-  StaticJsonBuffer<300> JSONbuffer;
-  JsonObject& JSONencoder = JSONbuffer.createObject();
- 
-  JSONencoder["mac"] = mac;
-  JSONencoder["type"] = "temperature";
-//  JSONencoder["valeur"] = (isnan(c))? (-2) : (-1);
-  JSONencoder["valeur"] = thermocouple.readCelsius();
-//  JSONencoder["valeur_int"] = thermocouple.readInternal();
-//  JSONencoder["erreur"] = thermocouple.readError();
-  
-  char JSONmessageBuffer[100];
-  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
   Serial.println(JSONmessageBuffer);
-  
   if (client.connect("arduinoClient", MQTT_USERNAME, MQTT_KEY)) { 
-    if (client.publish("temperatures", JSONmessageBuffer) == true) {
+    if (client.publish(TOPIC, JSONmessageBuffer) == true) {
       Serial.println("message envoye");
-    } else {
-      Serial.println("Erreur message non envoye");
+      delay(100); //pour le QoS 2 
     }
   }
-  
- //client.loop();
-  delay(10000); //10 secondes
- // delay(20000); //20 sec
-  //delay(1000); //1 sec
+  Serial.println("Mise en veille");
+  ESP.deepSleep(10e6); 
+
 }
 
+void loop() {
+}
 
