@@ -49,6 +49,8 @@ String mac = WiFi.macAddress();
 void setup() {
   client.setServer(MQTT_SERVER, MQTT_SERVERPORT);
   Serial.begin(9600);
+   
+  Serial.println(""); 
   Serial.println("Reveil");
   pinMode(MAXVCC, OUTPUT); digitalWrite(MAXVCC, HIGH);
   delay(100);
@@ -71,7 +73,7 @@ void setup() {
   JsonObject& JSONencoder = JSONbuffer.createObject();
   JSONencoder["mac"] = mac;
   JSONencoder["type"] = "temperature";
-  JSONencoder["valeur"] = temp +5 ; //+offset de calibration
+  JSONencoder["valeur"] = temp; // +5 ; //+offset de calibration
 
   char JSONmessageBuffer[100];
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
@@ -100,7 +102,7 @@ void setup() {
     }
   }
   Serial.println("Mise en veille");
-  ESP.deepSleep(10e6); 
+  ESP.deepSleep(58e6); 
 
 }
 
